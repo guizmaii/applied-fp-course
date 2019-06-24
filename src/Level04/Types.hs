@@ -24,7 +24,7 @@ import           Data.Text                  (Text, pack)
 import           Data.List                  (stripPrefix)
 import           Data.Maybe                 (fromMaybe)
 
-import           Data.Functor.Contravariant ((>$<))
+import           Data.Functor.Contravariant ((>$<), contramap)
 
 import           Data.Time                  (UTCTime)
 import qualified Data.Time.Format           as TF
@@ -32,24 +32,32 @@ import qualified Data.Time.Format           as TF
 import           Waargonaut.Encode          (Encoder)
 import qualified Waargonaut.Encode          as E
 
-import           Level04.DB.Types           (DBComment)
+import           Level04.DB.Types           (DBComment (..))
 
 -- | Notice how we've moved these types into their own modules. It's cheap and
 -- easy to add modules to carve out components in a Haskell application. So
 -- whenever you think that a module is too big, covers more than one piece of
 -- distinct functionality, or you want to carve out a particular piece of code,
 -- just spin up another module.
-import           Level04.Types.CommentText  (CommentText, getCommentText,
-                                             mkCommentText)
-import           Level04.Types.Topic        (Topic, getTopic, mkTopic)
+import           Level04.Types.CommentText  (CommentText, getCommentText, mkCommentText, encodeCommentText)
+import           Level04.Types.Topic        (Topic, getTopic, mkTopic, encodeTopic)
 
 import           Level04.Types.Error        (Error (EmptyCommentText, EmptyTopic, UnknownRoute))
+
+import           Control.Monad.Zip          (mzip)
+import           Control.Applicative        (liftA2)
 
 newtype CommentId = CommentId Int
   deriving (Eq, Show)
 
+getCommentId :: CommentId -> Int
+getCommentId (CommentId i) = i
+
+encodeCommentId :: Applicative f => Encoder f CommentId
+encodeCommentId = contramap getCommentId E.int
+
 -- | This is the `Comment` record that we will be sending to users, it's a
--- straightforward record type, containing an `Int`, `Topic`, `CommentText`, and
+-- straightforward record type, containing a `CommentId`, `Topic`, `CommentText`, and
 -- `UTCTime`.
 data Comment = Comment
   { commentId    :: CommentId
@@ -66,32 +74,29 @@ data Comment = Comment
 -- 'https://hackage.haskell.org/package/waargonaut/docs/Waargonaut-Encode.html'
 --
 encodeComment :: Applicative f => Encoder f Comment
-encodeComment =
-  error "Comment JSON encoder not implemented"
-  -- Tip: Use the 'encodeISO8601DateTime' to handle the UTCTime for us.
+encodeComment = E.mapLikeObj $ \c ->
+  E.atKey' "id" encodeCommentId (commentId c) .
+  E.atKey' "topic" encodeTopic (commentTopic c) .
+  E.atKey' "body" encodeCommentText (commentBody c) .
+  E.atKey' "time" encodeISO8601DateTime (commentTime c)
 
 -- | For safety we take our stored `DBComment` and try to construct a `Comment`
 -- that we would be okay with showing someone. However unlikely it may be, this
 -- is a nice method for separating out the back and front end of a web app and
 -- providing greater guarantees about data cleanliness.
-fromDBComment
-  :: DBComment
-  -> Either Error Comment
-fromDBComment =
-  error "fromDBComment not yet implemented"
+fromDBComment :: DBComment -> Either Error Comment
+fromDBComment c =
+  let f topic body = Comment (CommentId $ dbCommentId c) topic body (dbCommentTime c)
+  in liftA2 f (mkTopic $ dbCommentTopic c) (mkCommentText $ dbCommentBody c)
 
 data RqType
   = AddRq Topic CommentText
   | ViewRq Topic
   | ListRq
 
-data ContentType
-  = PlainText
-  | JSON
+data ContentType = PlainText | JSON
 
-renderContentType
-  :: ContentType
-  -> ByteString
+renderContentType :: ContentType -> ByteString
 renderContentType PlainText = "text/plain"
 renderContentType JSON      = "application/json"
 

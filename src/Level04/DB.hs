@@ -15,14 +15,18 @@ import qualified Data.Text                          as Text
 
 import           Data.Time                          (getCurrentTime)
 
-import           Database.SQLite.Simple             (Connection, Query (Query))
+import           Database.SQLite.Simple             (Connection, Query (Query), Only (..))
 import qualified Database.SQLite.Simple             as Sql
 
 import qualified Database.SQLite.SimpleErrors       as Sql
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
 import           Level04.Types                      (Comment, CommentText,
-                                                     Error, Topic)
+                                                     Error, Topic, getTopic, fromDBComment)
+
+import           Database.SQLite.SimpleErrors       (runDBAction)
+
+import           Level04.DB.Types                   (DBComment)
 
 -- ------------------------------------------------------------------------|
 -- You'll need the documentation for sqlite-simple ready for this section! |
@@ -40,24 +44,24 @@ data FirstAppDB = FirstAppDB
   }
 
 -- Quick helper to pull the connection and close it down.
-closeDB
-  :: FirstAppDB
-  -> IO ()
-closeDB =
-  error "closeDB not implemented"
+closeDB :: FirstAppDB -> IO ()
+closeDB db = Sql.close $ dbConn db
 
 -- Given a `FilePath` to our SQLite DB file, initialise the database and ensure
 -- our Table is there by running a query to create it, if it doesn't exist
 -- already.
-initDB
-  :: FilePath
-  -> IO ( Either SQLiteResponse FirstAppDB )
+initDB :: FilePath -> IO ( Either SQLiteResponse FirstAppDB )
 initDB fp =
-  error "initDB not implemented"
+  runDBAction doCreate
   where
-  -- Query has an `IsString` instance so string literals like this can be
-  -- converted into a `Query` type when the `OverloadedStrings` language
-  -- extension is enabled.
+    doCreate = do
+      conn <- Sql.open fp
+      Sql.execute_ conn createTableQ
+      return $ FirstAppDB conn
+
+    -- Query has an `IsString` instance so string literals like this can be
+    -- converted into a `Query` type when the `OverloadedStrings` language
+    -- extension is enabled.
     createTableQ = "CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY, topic TEXT, comment TEXT, time TEXT)"
 
 -- Note that we don't store the `Comment` in the DB, it is the type we build
@@ -70,19 +74,19 @@ initDB fp =
 --
 -- HINT: You can use '?' or named place-holders as query parameters. Have a look
 -- at the section on parameter substitution in sqlite-simple's documentation.
-getComments
-  :: FirstAppDB
-  -> Topic
-  -> IO (Either Error [Comment])
-getComments =
+-- TODO Jules: WIP
+getComments :: FirstAppDB -> Topic -> IO (Either Error [Comment])
+getComments db topic =
   let
     sql = "SELECT id,topic,comment,time FROM comments WHERE topic = ?"
-  -- There are several possible implementations of this function. Particularly
-  -- there may be a trade-off between deciding to throw an Error if a DBComment
-  -- cannot be converted to a Comment, or simply ignoring any DBComment that is
-  -- not valid.
-  in
-    error "getComments not implemented"
+    -- There are several possible implementations of this function. Particularly
+    -- there may be a trade-off between deciding to throw an Error if a DBComment
+    -- cannot be converted to a Comment, or simply ignoring any DBComment that is
+    -- not valid.
+
+    query = Sql.query_ (dbConn db) sql (Only (getTopic topic)) :: IO [DBComment]
+
+  in traverse fromDBComment query
 
 addCommentToTopic
   :: FirstAppDB
