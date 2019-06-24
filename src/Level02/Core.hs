@@ -80,8 +80,8 @@ mkListRequest = Right ListRq
 --------------------------------------
 
 mkErrorResponse :: Error -> Response
-mkErrorResponse EmptyTopicMessageError    = resp400 PlainText "Empty Topic text"
-mkErrorResponse EmptyCommentMessageError  = resp400 PlainText "Empty Comment text"
+mkErrorResponse EmptyTopicMessageError    = resp400 PlainText "Empty Topic Text"
+mkErrorResponse EmptyCommentMessageError  = resp400 PlainText "Empty Comment Text"
 mkErrorResponse NotFound                  = resp404 PlainText "Not Found"
 
 -- | Use our ``RqType`` helpers to write a function that will take the input
