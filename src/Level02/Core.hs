@@ -87,14 +87,13 @@ mkErrorResponse NotFound                  = resp404 PlainText "Not Found"
 -- | Use our ``RqType`` helpers to write a function that will take the input
 -- ``Request`` from the Wai library and turn it into something our application
 -- cares about.
--- TODO Jules: How do you extract data from URL ?
 mkRequest :: Request -> IO ( Either Error RqType )
 mkRequest request =
-  return $ case (requestMethod request, pathInfo request) of
-    ("GET",  ["list"])        -> mkListRequest
-    ("GET",  [topic, "view"]) -> mkViewRequest topic
-    ("POST", [topic, "add"])  -> mkAddRequest topic "Tutu"
-    _                         -> Left NotFound
+  case (requestMethod request, pathInfo request) of
+    ("GET",  ["list"])        -> return mkListRequest
+    ("GET",  [topic, "view"]) -> return $ mkViewRequest topic
+    ("POST", [topic, "add"])  -> mkAddRequest topic <$> strictRequestBody request
+    _                         -> return $ Left NotFound
 
 -- | If we find that we need more information to handle a request, or we have a
 -- new type of request that we'd like to handle then we update the ``RqType``
@@ -108,9 +107,9 @@ mkRequest request =
 -- any persistent storage. Plain text responses that contain "X not implemented
 -- yet" should be sufficient.
 handleRequest :: RqType -> Either Error Response
-handleRequest (AddRq topic _) = Right $ resp200 PlainText $ stringToByteString ("Topic: " ++ T.unpack (getTopic topic) ++ ", Comment: tata")
-handleRequest (ViewRq topic)  = Right $ resp200 PlainText $ stringToByteString ("Topic: " ++ T.unpack (getTopic topic))
-handleRequest ListRq      = Right $ resp200 PlainText "Topics: a, b, c"
+handleRequest (AddRq topic comment) = Right $ resp200 PlainText $ stringToByteString ("Topic: " ++ T.unpack (getTopic topic) ++ ", Comment: " ++ T.unpack (getCommentText comment))
+handleRequest (ViewRq topic)        = Right $ resp200 PlainText $ stringToByteString ("Topic: " ++ T.unpack (getTopic topic))
+handleRequest ListRq                = Right $ resp200 PlainText "Topics: a, b, c"
 
 buildAnswer :: Either Error RqType -> Either Error Response
 buildAnswer rq = rq >>= handleRequest
