@@ -11,16 +11,26 @@ import           Network.HTTP.Types       (Status, hContentType, status200,
                                            status400, status404)
 
 import qualified Data.ByteString.Lazy     as LBS
-import          Data.ByteString.Char8     (pack)
+import qualified Data.ByteString.Char8    as C
 
 import           Data.Either              (either)
 
 import           Data.Text                (Text)
+import qualified Data.Text                as T
+
 import           Data.Text.Encoding       (decodeUtf8)
 
 import           Level02.Types            (ContentType (..), Error (..), RqType (..),
                                            mkCommentText, mkTopic, getCommentText, getTopic,
                                            renderContentType)
+
+-- |-------------------------------------------|
+-- |- Jules' personal helpers                 -|
+-- |-------------------------------------------|
+
+stringToByteString :: String -> LBS.ByteString
+stringToByteString s = LBS.fromStrict $ C.pack s
+
 
 -- |-------------------------------------------|
 -- |- Don't start here, go to Level02.Types!  -|
@@ -80,11 +90,11 @@ mkErrorResponse NotFound                  = resp404 PlainText "Not Found"
 -- TODO Jules: How do you extract data from URL ?
 mkRequest :: Request -> IO ( Either Error RqType )
 mkRequest request =
-  return $ case (requestMethod request, rawPathInfo request) of
-    ("GET", "/list")        -> mkListRequest
-    ("GET", "/topic/view")  -> mkViewRequest "Toto"
-    ("POST", "/topic/add")  -> mkAddRequest "Tata" "Tutu"
-    _                       -> Left NotFound
+  return $ case (requestMethod request, pathInfo request) of
+    ("GET",  ["list"])        -> mkListRequest
+    ("GET",  [topic, "view"]) -> mkViewRequest topic
+    ("POST", [topic, "add"])  -> mkAddRequest topic "Tutu"
+    _                         -> Left NotFound
 
 -- | If we find that we need more information to handle a request, or we have a
 -- new type of request that we'd like to handle then we update the ``RqType``
@@ -98,8 +108,8 @@ mkRequest request =
 -- any persistent storage. Plain text responses that contain "X not implemented
 -- yet" should be sufficient.
 handleRequest :: RqType -> Either Error Response
-handleRequest (AddRq _ _) = Right $ resp200 PlainText "Topic: toto, Comment: tata"
-handleRequest (ViewRq _)  = Right $ resp200 PlainText "Topic: tutu"
+handleRequest (AddRq topic _) = Right $ resp200 PlainText $ stringToByteString ("Topic: " ++ T.unpack (getTopic topic) ++ ", Comment: tata")
+handleRequest (ViewRq topic)  = Right $ resp200 PlainText $ stringToByteString ("Topic: " ++ T.unpack (getTopic topic))
 handleRequest ListRq      = Right $ resp200 PlainText "Topics: a, b, c"
 
 buildAnswer :: Either Error RqType -> Either Error Response
