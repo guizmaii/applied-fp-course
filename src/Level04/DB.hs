@@ -83,9 +83,7 @@ getComments db topic =
     -- cannot be converted to a Comment, or simply ignoring any DBComment that is
     -- not valid.
     sql = "SELECT id, topic, comment, time FROM comments WHERE topic = :topic"
-
     query = Sql.queryNamed (dbConn db) sql [":topic" := getTopic topic] :: IO [DBComment]
-
   in query <&> traverse fromDBComment
 
 addCommentToTopic :: FirstAppDB -> Topic -> CommentText -> IO (Either Error ())
