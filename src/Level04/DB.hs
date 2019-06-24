@@ -15,7 +15,7 @@ import qualified Data.Text                          as Text
 
 import           Data.Time                          (getCurrentTime)
 
-import           Database.SQLite.Simple             (Connection, Query (Query), Only (..))
+import           Database.SQLite.Simple             (Connection, Query (Query), Only (..), NamedParam (..))
 import qualified Database.SQLite.Simple             as Sql
 
 import qualified Database.SQLite.SimpleErrors       as Sql
@@ -74,25 +74,21 @@ initDB fp =
 --
 -- HINT: You can use '?' or named place-holders as query parameters. Have a look
 -- at the section on parameter substitution in sqlite-simple's documentation.
--- TODO Jules: WIP
+-- TODO Jules: TO TEST!
 getComments :: FirstAppDB -> Topic -> IO (Either Error [Comment])
 getComments db topic =
   let
-    sql = "SELECT id,topic,comment,time FROM comments WHERE topic = ?"
     -- There are several possible implementations of this function. Particularly
     -- there may be a trade-off between deciding to throw an Error if a DBComment
     -- cannot be converted to a Comment, or simply ignoring any DBComment that is
     -- not valid.
+    sql = "SELECT id, topic, comment, time FROM comments WHERE topic = :topic"
 
-    query = Sql.query_ (dbConn db) sql (Only (getTopic topic)) :: IO [DBComment]
+    query = Sql.queryNamed (dbConn db) sql [":topic" := getTopic topic] :: IO [DBComment]
 
-  in traverse fromDBComment query
+  in query <&> traverse fromDBComment
 
-addCommentToTopic
-  :: FirstAppDB
-  -> Topic
-  -> CommentText
-  -> IO (Either Error ())
+addCommentToTopic :: FirstAppDB -> Topic -> CommentText -> IO (Either Error ())
 addCommentToTopic =
   let
     sql = "INSERT INTO comments (topic,comment,time) VALUES (?,?,?)"
