@@ -7,14 +7,16 @@ module Level05.AppM
   , runAppM
   ) where
 
-import           Control.Monad.Except   (MonadError (..))
-import           Control.Monad.IO.Class (MonadIO (..))
+import           Control.Monad.Except    (MonadError (..))
+import           Control.Monad.IO.Class  (MonadIO (..))
 
-import           Data.Text              (Text)
+import           Data.Text               (Text)
 
-import           Level05.Types          (Error)
+import           Level05.Types           (Error)
 
-import           Data.Bifunctor         (first)
+import           Data.Bifunctor          (second)
+
+import           Data.Functor            ((<&>))
 
 -- We're going to add a very useful abstraction to our application. We'll
 -- automate away the explicit error handling and inspection of our Either values
@@ -64,40 +66,51 @@ newtype AppM a = AppM (IO (Either Error a))
 --
 -- AppM e m a = AppM ( m (Either e a) )
 
-runAppM
-  :: AppM a
-  -> IO (Either Error a)
-runAppM (AppM m) =
-  m
+runAppM :: AppM a -> IO (Either Error a)
+runAppM (AppM m) = m
 
 instance Functor AppM where
   fmap :: (a -> b) -> AppM a -> AppM b
-  fmap = error "fmap for AppM not implemented"
+  fmap f (AppM ioea) = AppM $ ioea <&> second f
+  -- teacher version: fmap f = AppM . (fmap . fmap) f . runAppM
 
 instance Applicative AppM where
   pure :: a -> AppM a
-  pure  = error "pure for AppM not implemented"
+  pure a = AppM $ pure $ pure a
 
   (<*>) :: AppM (a -> b) -> AppM a -> AppM b
-  (<*>) = error "spaceship for AppM not implemented"
+  (<*>) (AppM f) (AppM a) = AppM $ (f <&> (<*>)) <*> a
+
+  -- Teacher version
+  -- (<*>) (AppM f) (AppM a) = AppM $ (<*>) <$> f <*> a
 
 instance Monad AppM where
   return :: a -> AppM a
-  return = error "return for AppM not implemented"
+  return = pure
+
+  -- IO (Either e a)
+  -- AppM a = (IO (Either e a))
 
   (>>=) :: AppM a -> (a -> AppM b) -> AppM b
-  (>>=)  = error "bind for AppM not implemented"
+  (>>=) (AppM ioea) f = AppM $ ioea >>= either (pure . Left) (runAppM . f)
+
+  -- Teacher version
+  -- (>>=) appma appmatob = AppM $ do
+  --    a <- runAppM appma
+  --    case a of
+  --      Left err -> pure $ Left err
+  --      Right a  -> runAppM $ f a
 
 instance MonadIO AppM where
   liftIO :: IO a -> AppM a
-  liftIO = error "liftIO for AppM not implemented"
+  liftIO ioa = AppM $ ioa <&> Right
 
 instance MonadError Error AppM where
   throwError :: Error -> AppM a
-  throwError = error "throwError for AppM not implemented"
+  throwError e = AppM $ pure $ Left e
 
   catchError :: AppM a -> (Error -> AppM a) -> AppM a
-  catchError = error "catchError for AppM not implemented"
+  catchError (AppM ioea) f = AppM $ ioea >>= either (runAppM . f) (pure . pure)
 
 -- This is a helper function that will `lift` an Either value into our new AppM
 -- by applying `throwError` to the Left value, and using `pure` to lift the
@@ -106,10 +119,7 @@ instance MonadError Error AppM where
 -- throwError :: MonadError e m => e -> m a
 -- pure :: Applicative m => a -> m a
 --
-liftEither
-  :: Either Error a
-  -> AppM a
-liftEither =
-  error "liftEither not implemented"
+liftEither :: Either Error a -> AppM a
+liftEither = either throwError pure
 
 -- Go to 'src/Level05/DB.hs' next.
