@@ -25,7 +25,7 @@ import           Level07.Types.Error    (Error)
 -- records like any other type.
 data Env = Env
 
-  -- | We will add a function to take some 'Text' input and print it to the
+  -- We will add a function to take some 'Text' input and print it to the
   -- console as a crude form of logging. Construct a function that matches this
   -- type so you can include it when you create the 'Env'.
   { envLoggingFn :: Text -> App ()
@@ -48,11 +48,11 @@ data Env = Env
 newtype AppM e a = AppM
   { runAppM :: Env -> IO (Either e a)
   }
-  -- | Quite often, GHC is able to write the code for us. In this case we just
+  -- Quite often, GHC is able to write the code for us. In this case we just
   -- tell GHC that we want a Functor instance for our newtype, and it is able to
   -- correctly derive what is needed.
   deriving Functor
-  -- | We could do this for the rest of these instances, but that would turn
+  -- We could do this for the rest of these instances, but that would turn
   -- into "magic" what is otherwise straight-forward implementations. You are
   -- here to learn after all.
 

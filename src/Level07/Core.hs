@@ -49,11 +49,11 @@ import           Level07.Types                      (Conf, ConfigError,
 import           Level07.AppM                       (App, Env (..), liftEither,
                                                      runApp)
 
--- | We're going to use the `mtl` ExceptT monad transformer to make the loading of
+-- We're going to use the `mtl` ExceptT monad transformer to make the loading of
 -- our `Conf` a bit more straight-forward.
 import           Control.Monad.Except               (ExceptT (..), runExceptT)
 
--- | Our start-up is becoming more complicated and could fail in new and
+-- Our start-up is becoming more complicated and could fail in new and
 -- interesting ways. But we also want to be able to capture these errors in a
 -- single type so that we can deal with the entire start-up process as a whole.
 data StartUpError
