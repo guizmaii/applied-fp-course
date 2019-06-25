@@ -159,6 +159,31 @@ test-suite app-fp-tests
                      , hedgehog >= 0.6 && < 0.7
                      , tasty-hedgehog >= 0.2 && < 0.3
 
+test-suite app-fp-tests-04
+  default-language:    Haskell2010
+  type:                exitcode-stdio-1.0
+
+  hs-source-dirs:      tests
+  main-is:             TestLevel04.hs
+
+  build-depends:       base >= 4.8 && <4.13
+                     , applied-fp-course
+                     , wai == 3.2.*
+                     , wai-extra == 3.0.*
+                     , http-types >= 0.9 && < 0.13
+                     , tasty >= 0.8 && < 1.2
+                     , tasty-hunit >= 0.9 && < 0.11
+                     , tasty-wai >= 0.1 && < 0.2
+                     , bytestring == 0.10.*
+                     , text == 1.2.*
+                     , mtl == 2.2.*
+                     , semigroups == 0.18.*
+                     , transformers >= 0.4 && < 0.6
+
+                     -- [Challenge] Packages
+                     , hedgehog >= 0.6 && < 0.7
+                     , tasty-hedgehog >= 0.2 && < 0.3
+
 test-suite doctests
   -- Base language which the package is written in.
   default-language:    Haskell2010
