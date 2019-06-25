@@ -88,7 +88,6 @@ initDB fp =
 -- HINT: You can use '?' or named place-holders as query parameters. Have a look
 -- at the section on parameter substitution in sqlite-simple's documentation.
 -- TODO Jules: TO TEST!
--- TODO Jules: Add DB connection failures handling (`runDBActionE`)
 getComments :: FirstAppDB -> Topic -> IO (Either Error [Comment])
 getComments db topic =
   let
@@ -98,7 +97,7 @@ getComments db topic =
     -- not valid.
     sql   = "SELECT id, topic, comment, time FROM comments WHERE topic = :topic"
     query = Sql.queryNamed (dbConn db) sql [":topic" := getTopic topic] :: IO [DBComment]
-  in query <&> traverse fromDBComment
+  in runDBActionE query <&> flatTraverse fromDBComment
 
 addCommentToTopic :: FirstAppDB -> Topic -> CommentText -> IO (Either Error ())
 addCommentToTopic db topic comment =
