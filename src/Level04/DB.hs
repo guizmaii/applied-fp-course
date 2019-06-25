@@ -3,6 +3,7 @@
 module Level04.DB
   ( FirstAppDB (FirstAppDB)
   , initDB
+  , exceptionalInitDB
   , closeDB
   , addCommentToTopic
   , getComments
@@ -37,6 +38,9 @@ import           Data.Time.Clock                    (UTCTime, getCurrentTime)
 
 import           Data.Functor                       ((<&>))
 import           Control.Monad                      (join)
+
+import           GHC.IO                             (throwIO)
+import           Data.Either                        (either)
 
 -- ------------------------------------------------------------------------|
 -- You'll need the documentation for sqlite-simple ready for this section! |
@@ -76,6 +80,9 @@ initDB fp =
     -- converted into a `Query` type when the `OverloadedStrings` language
     -- extension is enabled.
     createTableQ = "CREATE TABLE IF NOT EXISTS comments (id INTEGER PRIMARY KEY, topic TEXT, comment TEXT, time TEXT)"
+
+exceptionalInitDB :: FilePath -> IO FirstAppDB
+exceptionalInitDB fp = initDB fp >>= either throwIO pure
 
 -- Note that we don't store the `Comment` in the DB, it is the type we build
 -- to send to the outside world. We will be loading our `DBComment` type from
