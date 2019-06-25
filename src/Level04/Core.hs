@@ -36,7 +36,7 @@ import qualified Waargonaut.Encode                  as E
 import           Level04.Conf                       (Conf, firstAppConfig)
 import qualified Level04.DB                         as DB
 import           Level04.Types                      (ContentType (JSON, PlainText),
-                                                     Error (EmptyCommentText, EmptyTopic, UnknownRoute),
+                                                     Error (..),
                                                      RqType (AddRq, ListRq, ViewRq),
                                                      mkCommentText, mkTopic,
                                                      renderContentType)
@@ -178,12 +178,8 @@ mkListRequest
 mkListRequest =
   Right ListRq
 
-mkErrorResponse
-  :: Error
-  -> Response
-mkErrorResponse UnknownRoute =
-  resp404 PlainText "Unknown Route"
-mkErrorResponse EmptyCommentText =
-  resp400 PlainText "Empty Comment"
-mkErrorResponse EmptyTopic =
-  resp400 PlainText "Empty Topic"
+mkErrorResponse :: Error -> Response
+mkErrorResponse UnknownRoute     = resp404 PlainText "Unknown Route"
+mkErrorResponse EmptyCommentText = resp400 PlainText "Empty Comment"
+mkErrorResponse EmptyTopic       = resp400 PlainText "Empty Topic"
+mkErrorResponse (DBError _)      = resp500 PlainText "An Error Occured"

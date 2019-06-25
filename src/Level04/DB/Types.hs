@@ -1,10 +1,13 @@
 {-# OPTIONS_GHC -fno-warn-missing-methods #-}
-module Level04.DB.Types where
+module Level04.DB.Types (DBComment (..), toTopic) where
 
 import           Data.Text                      (Text)
 import           Data.Time                      (UTCTime)
 
 import           Database.SQLite.Simple.FromRow (FromRow (fromRow), field)
+
+import           Level04.Types.Topic            (Topic, mkTopic)
+import           Level04.Types.Error            (Error)
 
 -- To try to avoid leaking various types and expected functionality around the
 -- application, we create a stand alone type that will represent the data we
@@ -30,5 +33,8 @@ data DBComment = DBComment
 -- between different packages/databases.
 instance FromRow DBComment where
   fromRow = DBComment <$> field <*> field <*> field <*> field
+
+toTopic :: DBComment -> Either Error Topic
+toTopic c = mkTopic $ dbCommentTopic c
 
 -- Now move to ``src/Level04/Types.hs``

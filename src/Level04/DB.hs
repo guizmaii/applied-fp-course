@@ -22,11 +22,20 @@ import qualified Database.SQLite.SimpleErrors       as Sql
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
 import           Level04.Types                      (Comment, CommentText,
-                                                     Error, Topic, getTopic, fromDBComment)
+                                                     Error, Topic, getTopic, getCommentText, fromDBComment, mkTopic)
+
+import           Level04.Types.Error                (Error (..), toDBError)
+
+import           Level04.DB.Types                   (toTopic)
+import           Database.SQLite.Simple.FromRow
 
 import           Database.SQLite.SimpleErrors       (runDBAction)
 
 import           Level04.DB.Types                   (DBComment)
+
+import           Data.Time.Clock                    (UTCTime, getCurrentTime)
+
+import           Data.Functor                       ((<&>))
 
 -- ------------------------------------------------------------------------|
 -- You'll need the documentation for sqlite-simple ready for this section! |
@@ -75,6 +84,7 @@ initDB fp =
 -- HINT: You can use '?' or named place-holders as query parameters. Have a look
 -- at the section on parameter substitution in sqlite-simple's documentation.
 -- TODO Jules: TO TEST!
+-- TODO Jules: Add DB connection failures handling (`runDBAction`)
 getComments :: FirstAppDB -> Topic -> IO (Either Error [Comment])
 getComments db topic =
   let
@@ -82,32 +92,39 @@ getComments db topic =
     -- there may be a trade-off between deciding to throw an Error if a DBComment
     -- cannot be converted to a Comment, or simply ignoring any DBComment that is
     -- not valid.
-    sql = "SELECT id, topic, comment, time FROM comments WHERE topic = :topic"
+    sql   = "SELECT id, topic, comment, time FROM comments WHERE topic = :topic"
     query = Sql.queryNamed (dbConn db) sql [":topic" := getTopic topic] :: IO [DBComment]
   in query <&> traverse fromDBComment
 
 addCommentToTopic :: FirstAppDB -> Topic -> CommentText -> IO (Either Error ())
-addCommentToTopic =
+addCommentToTopic db topic comment =
   let
-    sql = "INSERT INTO comments (topic,comment,time) VALUES (?,?,?)"
+    sql       = "INSERT INTO comments (topic,comment,time) VALUES (?,?,?)"
+    query now = Sql.execute (dbConn db) sql (getTopic topic, getCommentText comment, now :: UTCTime) :: IO ()
   in
-    error "addCommentToTopic not implemented"
+    runDBAction (query =<< getCurrentTime) <&> toDBError
 
-getTopics
-  :: FirstAppDB
-  -> IO (Either Error [Topic])
-getTopics =
-  let
-    sql = "SELECT DISTINCT topic FROM comments"
-  in
-    error "getTopics not implemented"
 
-deleteTopic
-  :: FirstAppDB
-  -> Topic
-  -> IO (Either Error ())
-deleteTopic =
+-- Yeah, the name (and the function) is... meh, I know 😅
+biKindOfTraverse :: (a -> Either Error b) -> Either SQLiteResponse [a] -> Either Error [b]
+biKindOfTraverse f r = toDBError r >>= traverse f
+
+-- TODO Jules: Find how to write this function!
+-- biTraverse :: Bifunctor m => (a -> m e b) -> (c -> m e a) -> m c [a] -> m e [b]
+
+getTopics :: FirstAppDB -> IO (Either Error [Topic])
+getTopics db =
   let
-    sql = "DELETE FROM comments WHERE topic = ?"
+    sql   = "SELECT DISTINCT topic FROM comments"
+    query = (Sql.query_ (dbConn db) sql :: IO [Only Text]) <&> map fromOnly
   in
-    error "deleteTopic not implemented"
+    runDBAction query <&> biKindOfTraverse mkTopic
+
+deleteTopic :: FirstAppDB -> Topic -> IO (Either Error ())
+deleteTopic db topic =
+  let
+    t     = getTopic topic
+    sql   = "DELETE FROM comments WHERE topic = :topic"
+    query = Sql.executeNamed (dbConn db) sql [":topic" := t] :: IO ()
+  in
+    runDBAction query <&> toDBError

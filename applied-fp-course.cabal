@@ -126,6 +126,7 @@ library
                      , lens >= 4.15 && < 4.18 
                      , waargonaut >= 0.6 && < 0.7
                      , attoparsec >= 0.13 && < 0.15
+                     , either == 5.0.1.1
 
   -- Directories containing source files.
   hs-source-dirs:      src
