@@ -36,6 +36,7 @@ import           Level04.DB.Types                   (DBComment)
 import           Data.Time.Clock                    (UTCTime, getCurrentTime)
 
 import           Data.Functor                       ((<&>))
+import           Control.Monad                      (join)
 
 -- ------------------------------------------------------------------------|
 -- You'll need the documentation for sqlite-simple ready for this section! |
@@ -51,6 +52,9 @@ import           Data.Functor                       ((<&>))
 data FirstAppDB = FirstAppDB
   { dbConn :: Connection
   }
+
+runDBActionE :: IO a -> IO (Either Error a)
+runDBActionE io = runDBAction io <&> toDBError
 
 -- Quick helper to pull the connection and close it down.
 closeDB :: FirstAppDB -> IO ()
@@ -84,7 +88,7 @@ initDB fp =
 -- HINT: You can use '?' or named place-holders as query parameters. Have a look
 -- at the section on parameter substitution in sqlite-simple's documentation.
 -- TODO Jules: TO TEST!
--- TODO Jules: Add DB connection failures handling (`runDBAction`)
+-- TODO Jules: Add DB connection failures handling (`runDBActionE`)
 getComments :: FirstAppDB -> Topic -> IO (Either Error [Comment])
 getComments db topic =
   let
@@ -102,15 +106,13 @@ addCommentToTopic db topic comment =
     sql       = "INSERT INTO comments (topic,comment,time) VALUES (?,?,?)"
     query now = Sql.execute (dbConn db) sql (getTopic topic, getCommentText comment, now :: UTCTime) :: IO ()
   in
-    runDBAction (query =<< getCurrentTime) <&> toDBError
-
-
--- Yeah, the name (and the function) is... meh, I know 😅
-biKindOfTraverse :: (a -> Either Error b) -> Either SQLiteResponse [a] -> Either Error [b]
-biKindOfTraverse f r = toDBError r >>= traverse f
+    runDBActionE (query =<< getCurrentTime)
 
 -- TODO Jules: Find how to write this function!
 -- biTraverse :: Bifunctor m => (a -> m e b) -> (c -> m e a) -> m c [a] -> m e [b]
+
+flatTraverse :: (Monad m, Traversable t) => (a -> m b) -> m (t a) -> m (t b)
+flatTraverse f e = traverse f =<< e
 
 getTopics :: FirstAppDB -> IO (Either Error [Topic])
 getTopics db =
@@ -118,7 +120,7 @@ getTopics db =
     sql   = "SELECT DISTINCT topic FROM comments"
     query = (Sql.query_ (dbConn db) sql :: IO [Only Text]) <&> map fromOnly
   in
-    runDBAction query <&> biKindOfTraverse mkTopic
+    runDBActionE query <&> flatTraverse mkTopic
 
 deleteTopic :: FirstAppDB -> Topic -> IO (Either Error ())
 deleteTopic db topic =
@@ -127,4 +129,4 @@ deleteTopic db topic =
     sql   = "DELETE FROM comments WHERE topic = :topic"
     query = Sql.executeNamed (dbConn db) sql [":topic" := t] :: IO ()
   in
-    runDBAction query <&> toDBError
+    runDBActionE query
