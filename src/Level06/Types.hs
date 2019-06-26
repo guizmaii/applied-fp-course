@@ -67,6 +67,8 @@ import           Level06.Types.Error                (Error (..))
 import           Level06.Types.Topic                (Topic, encodeTopic,
                                                      getTopic, mkTopic)
 
+import           Control.Monad                      ((>=>))
+
 newtype CommentId = CommentId Int
   deriving Show
 
@@ -154,7 +156,10 @@ newtype DBFilePath = DBFilePath
 -- Add some fields to the ``Conf`` type:
 -- - A customisable port number: ``Port``
 -- - A filepath for our SQLite database: ``DBFilePath``
-data Conf = Conf
+data Conf = Conf {
+  port       :: Port,
+  dbFilePath :: DBFilePath
+}
 
 -- We're storing our Port as a Word16 to be more precise and prevent invalid
 -- values from being used in our application. However Wai is not so stringent.
@@ -166,16 +171,12 @@ data Conf = Conf
 --
 -- fromIntegral :: (Num b, Integral a) => a -> b
 --
-confPortToWai
-  :: Conf
-  -> Int
-confPortToWai =
-  error "confPortToWai not implemented"
+confPortToWai :: Conf -> Int
+confPortToWai = fromIntegral . getPort . port
 
 -- Similar to when we were considering our application types. We can add to this sum type as we
 -- build our application and the compiler can help us out.
-data ConfigError
-  = BadConfFile DecodeError
+data ConfigError = BadConfFile DecodeError
   deriving Show
 
 -- Our application will be able to load configuration from both a file and
@@ -212,16 +213,15 @@ data PartialConf = PartialConf
 -- on the ``Semigroup`` instance for Last to always get the last value.
 instance Semigroup PartialConf where
   _a <> _b = PartialConf
-    { pcPort       = error "pcPort (<>) not implemented"
-    , pcDBFilePath = error "pcDBFilePath (<>) not implemented"
+    { pcPort       = pcPort _a <> pcPort _b
+    , pcDBFilePath = pcDBFilePath _a <> pcDBFilePath _b
     }
 
 -- We now define our ``Monoid`` instance for ``PartialConf``. Allowing us to
 -- define our always empty configuration, which would always fail our
--- requirements. We just define `mappend` to be an alias of ``(<>)``
+-- requirements.
 instance Monoid PartialConf where
   mempty = PartialConf mempty mempty
-  mappend = (<>)
 
 -- | When it comes to reading the configuration options from the command-line, we
 -- use the 'optparse-applicative' package. This part of the exercise has already
@@ -233,6 +233,12 @@ instance Monoid PartialConf where
 -- have to tell waargonaut how to go about converting the JSON into our PartialConf
 -- data structure.
 partialConfDecoder :: Monad f => Decoder f PartialConf
-partialConfDecoder = error "PartialConf Decoder not implemented"
+partialConfDecoder = D.withCursor $ \curs -> do
+  -- Move down into the JSON object.
+  io <- D.down curs
+  -- We need individual values off of our object,
+  PartialConf
+    <$> (Last <$> D.try (D.fromKey "port" (Port <$> D.integral) io))
+    <*> (Last <$> D.try (D.fromKey "filePath" (DBFilePath <$> D.string) io))
 
 -- Go to 'src/Level06/Conf/File.hs' next
