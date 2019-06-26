@@ -120,6 +120,6 @@ instance MonadError Error AppM where
 -- pure :: Applicative m => a -> m a
 --
 liftEither :: Either Error a -> AppM a
-liftEither = either throwError pure
+liftEither = AppM . pure
 
 -- Go to 'src/Level05/DB.hs' next.
