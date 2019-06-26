@@ -2,10 +2,9 @@
 {-# LANGUAGE InstanceSigs          #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 module Level06.AppM
-  ( AppM
+  ( AppM (..)
   , App
   , liftEither
-  , runAppM
   , runApp
   ) where
 

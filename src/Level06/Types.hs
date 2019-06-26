@@ -27,6 +27,7 @@ module Level06.Types
   , renderContentType
   , confPortToWai
   , fromDBComment
+  , partialConfDecoder
   ) where
 
 import           GHC.Word                           (Word16)
@@ -68,6 +69,8 @@ import           Level06.Types.Topic                (Topic, encodeTopic,
                                                      getTopic, mkTopic)
 
 import           Control.Monad                      ((>=>))
+
+import           Control.Exception                  (IOException)
 
 newtype CommentId = CommentId Int
   deriving Show
@@ -176,7 +179,9 @@ confPortToWai = fromIntegral . getPort . port
 
 -- Similar to when we were considering our application types. We can add to this sum type as we
 -- build our application and the compiler can help us out.
-data ConfigError = BadConfFile DecodeError
+data ConfigError
+  = BadConfFile DecodeError
+  | ReadFileError IOException
   deriving Show
 
 -- Our application will be able to load configuration from both a file and
