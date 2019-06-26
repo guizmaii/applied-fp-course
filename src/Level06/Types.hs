@@ -11,7 +11,7 @@ module Level06.Types
   , ConfigError (..)
   , PartialConf (..)
   , Port (..)
-  , DBFilePath (..)
+  , DBFilePath
   , Conf (..)
   , RqType (..)
   , ContentType (..)
@@ -28,6 +28,7 @@ module Level06.Types
   , confPortToWai
   , fromDBComment
   , partialConfDecoder
+  , mkDBFilePath
   ) where
 
 import           GHC.Word                           (Word16)
@@ -156,6 +157,10 @@ newtype DBFilePath = DBFilePath
   { getDBFilePath :: FilePath }
   deriving (Eq, Show)
 
+mkDBFilePath :: String -> Maybe DBFilePath
+mkDBFilePath "" = Nothing
+mkDBFilePath fp = Just $ DBFilePath fp
+
 -- Add some fields to the ``Conf`` type:
 -- - A customisable port number: ``Port``
 -- - A filepath for our SQLite database: ``DBFilePath``
@@ -182,6 +187,9 @@ confPortToWai = fromIntegral . getPort . port
 data ConfigError
   = BadConfFile DecodeError
   | ReadFileError IOException
+  | CommandLineError IOException
+  | PortMissingError
+  | DBFilePathMissingError
   deriving Show
 
 -- Our application will be able to load configuration from both a file and
@@ -244,6 +252,6 @@ partialConfDecoder = D.withCursor $ \curs -> do
   -- We need individual values off of our object,
   PartialConf
     <$> (Last <$> D.try (D.fromKey "port" (Port <$> D.integral) io))
-    <*> (Last <$> D.try (D.fromKey "filePath" (DBFilePath <$> D.string) io))
+    <*> (Last <$> D.fromKey "filePath" (mkDBFilePath <$> D.string) io)
 
 -- Go to 'src/Level06/Conf/File.hs' next

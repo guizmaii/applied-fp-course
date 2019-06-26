@@ -11,8 +11,9 @@ import           Options.Applicative (Parser, eitherReader, execParser,
 
 import           Text.Read           (readEither)
 
-import           Level06.Types      (DBFilePath (DBFilePath),
-                                      PartialConf (PartialConf), Port (Port))
+import           Level06.Types      (DBFilePath, PartialConf (PartialConf), Port (Port), mkDBFilePath)
+
+import           Data.Functor       ((<&>))
 
 -- | Command Line Parsing
 
@@ -49,8 +50,7 @@ portParser =
     Last <$> optional (option portReader mods)
 
 -- Parse the DBFilePath from the input string into our type and into a Last wrapper.
-dbFilePathParser
-  :: Parser (Last DBFilePath)
+dbFilePathParser :: Parser (Last DBFilePath)
 dbFilePathParser =
   let
     mods = long "db-filepath"
@@ -58,4 +58,4 @@ dbFilePathParser =
            <> metavar "DBFILEPATH"
            <> help "File path for our SQLite Database file."
   in
-    Last <$> optional (DBFilePath <$> strOption mods)
+    Last . mkDBFilePath <$> strOption mods
