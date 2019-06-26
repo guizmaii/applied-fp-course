@@ -35,6 +35,7 @@ import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
 import           Level05.AppM                       (AppM, liftEither, runAppM)
 import qualified Level05.Conf                       as Conf
+import           Level05.Conf                       (Conf (..))
 import qualified Level05.DB                         as DB
 import           Level05.Types                      (ContentType (..),
                                                      Error (..),
@@ -43,11 +44,16 @@ import           Level05.Types                      (ContentType (..),
                                                      mkCommentText, mkTopic,
                                                      renderContentType)
 
+import            Control.Exception                  (throwIO)
+
+import qualified  System.Exit                        as Exit
+import            Data.Either.Combinators            (mapLeft)
+import            Data.Functor                       ((<&>))
+
 -- Our start-up is becoming more complicated and could fail in new and
 -- interesting ways. But we also want to be able to capture these errors in a
 -- single type so that we can deal with the entire start-up process as a whole.
-data StartUpError
-  = DBInitErr SQLiteResponse
+data StartUpError = DBInitErr SQLiteResponse
   deriving Show
 
 runApp :: IO ()
@@ -56,15 +62,16 @@ runApp = do
   cfgE <- prepareAppReqs
   -- Loading the configuration can fail, so we have to take that into account now.
   case cfgE of
-    Left err   ->
+    Left err   -> do
       -- We can't run our app at all! Display the message and exit the application.
-      undefined
+      putStrLn "DB connection failed"
+      Exit.exitFailure
     Right cfg ->
       -- We have a valid config! We can now complete the various pieces needed to run our
       -- application. This function 'finally' will execute the first 'IO a', and then, even in the
       -- case of that value throwing an exception, execute the second 'IO b'. We do this to ensure
       -- that our DB connection will always be closed when the application finishes, or crashes.
-      Ex.finally (run undefined undefined) (DB.closeDB cfg)
+      Ex.finally (run 8080 (app cfg)) (DB.closeDB cfg)
 
 -- We need to complete the following steps to prepare our app requirements:
 --
@@ -73,10 +80,8 @@ runApp = do
 --
 -- Our application configuration is defined in Conf.hs
 --
-prepareAppReqs
-  :: IO ( Either StartUpError DB.FirstAppDB )
-prepareAppReqs =
-  error "copy your prepareAppReqs from the previous level."
+prepareAppReqs :: IO ( Either StartUpError DB.FirstAppDB )
+prepareAppReqs = DB.initDB (dbFilePath Conf.firstAppConfig) <&> mapLeft DBInitErr
 
 -- | Some helper functions to make our lives a little more DRY.
 mkResponse
@@ -127,11 +132,10 @@ resp200Json e =
 
 -- How has this implementation changed, now that we have an AppM to handle the
 -- errors for our application? Could it be simplified? Can it be changed at all?
-app
-  :: DB.FirstAppDB
-  -> Application
+app :: DB.FirstAppDB -> Application
 app db rq cb =
-  error "app not reimplemented"
+  let prg = mkRequest rq >>= handleRequest db
+  in runAppM prg <&> either mkErrorResponse id >>= cb
 
 handleRequest
   :: DB.FirstAppDB
