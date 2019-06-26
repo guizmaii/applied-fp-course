@@ -112,7 +112,7 @@ addCommentToTopic db topic comment =
     sql       = "INSERT INTO comments (topic,comment,time) VALUES (?,?,?)"
     query now = Sql.execute (dbConn db) sql (getTopic topic, getCommentText comment, now :: UTCTime) :: IO ()
   in
-    runDBActionE (query =<< getCurrentTime)
+    runDBActionE $ getCurrentTime >>= query
 
 -- TODO Jules: Find how to write this function!
 -- biTraverse :: Bifunctor m => (a -> m e b) -> (c -> m e a) -> m c [a] -> m e [b]
